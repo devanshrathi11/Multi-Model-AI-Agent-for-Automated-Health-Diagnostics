@@ -1,0 +1,13 @@
+def contextual_notes(row):
+    notes = []
+    if row['Age'] >= 50 and row['TotalCholesterol_mgdl'] >= 190:
+        notes.append('Age-adjusted: Cholesterol near/above threshold in 50+')
+    if row['Gender'] == 'Female' and row['HDL_mgdl'] >= 60:
+        notes.append('High HDL (protective), especially in females')
+    if row['Gender'] == 'Male' and 1.2 <= row['Creatinine_mgdl'] <= 1.4:
+        notes.append('Creatinine slightly high; consider muscle mass in males')
+    return notes
+
+df['ContextNotes'] = df.apply(contextual_notes, axis=1)
+
+df[['PatientID','Age','Gender','ContextNotes']].head()

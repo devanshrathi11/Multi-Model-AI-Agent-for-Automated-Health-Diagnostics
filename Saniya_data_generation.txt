@@ -1,0 +1,54 @@
+import numpy as np
+import pandas as pd
+
+np.random.seed(42)
+
+N = 1500
+
+age = np.random.randint(18, 80, size=N)
+gender = np.random.choice(['Male', 'Female'], size=N, p=[0.52, 0.48])
+
+hemoglobin = np.where(gender=='Male',
+                      np.random.normal(15.0, 1.2, N),
+                      np.random.normal(13.5, 1.1, N))
+
+hemoglobin += np.random.choice([0, -2.0, 2.0], size=N, p=[0.9, 0.05, 0.05])
+
+fasting_glucose_mgdl = np.random.normal(95, 20, N)  # mg/dL
+fasting_glucose_mgdl += np.random.choice([0, 30], size=N, p=[0.9, 0.1])  # inject hyperglycemia
+
+total_cholesterol_mgdl = np.random.normal(190, 35, N)
+total_cholesterol_mgdl += np.random.choice([0, 40], size=N, p=[0.85, 0.15])
+
+ldl_mgdl = np.random.normal(120, 30, N)
+hdl_mgdl = np.random.normal(50, 12, N)
+triglycerides_mgdl = np.random.normal(150, 60, N)
+triglycerides_mgdl += np.random.choice([0, 100], size=N, p=[0.8, 0.2])
+
+creatinine_mgdl = np.random.normal(1.0, 0.2, N) + np.where(gender=='Male', 0.1, 0.0)
+urea_mgdl = np.random.normal(30, 8, N)
+
+
+tsh_uIUml = np.random.lognormal(mean=np.log(2.5), sigma=0.4, size=N)  # skewed
+vitamin_d_ngml = np.random.normal(25, 10, N)
+
+
+df = pd.DataFrame({
+    'PatientID': [f'P{100000+i}' for i in range(N)],
+    'Age': age,
+    'Gender': gender,
+    'Hemoglobin_gdl': hemoglobin.round(2),
+    'FastingGlucose_mgdl': fasting_glucose_mgdl.round(1),
+    'TotalCholesterol_mgdl': total_cholesterol_mgdl.round(1),
+    'LDL_mgdl': ldl_mgdl.round(1),
+    'HDL_mgdl': hdl_mgdl.round(1),
+    'Triglycerides_mgdl': triglycerides_mgdl.round(1),
+    'Creatinine_mgdl': creatinine_mgdl.round(2),
+    'Urea_mgdl': urea_mgdl.round(1),
+    'TSH_uIUml': tsh_uIUml.round(2),
+    'VitaminD_ngml': vitamin_d_ngml.round(1),
+})
+
+
+df.to_csv('blood_reports_large.csv', index=False)
+print(df.head(), "\n\nRows:", len(df))

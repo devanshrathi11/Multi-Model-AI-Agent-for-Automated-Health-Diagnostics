@@ -1,0 +1,143 @@
+import pandas as pd
+import numpy as np
+
+class Model1_DataProcessor:
+    def __init__(self, csv_path):
+        self.data = pd.read_csv(csv_path)
+
+    def preprocess(self):
+        reports = {}
+        for _, row in self.data.iterrows():
+            rid = row["Report_ID"]
+            if rid not in reports:
+                reports[rid] = {}
+            reports[rid][row["Parameter"]] = row["Value"]
+        return reports
+
+
+class Model2_RiskAssessment:
+    def calculate_lipid_ratios(self, report):
+        ratios = {}
+        try:
+            tc = report["Total Cholesterol"]
+            hdl = report["HDL"]
+            ldl = report["LDL"]
+            tg = report["Triglycerides"]
+
+            ratios["TC_to_HDL"] = round(tc / hdl, 2)
+            ratios["LDL_to_HDL"] = round(ldl / hdl, 2)
+            ratios["TG_to_HDL"] = round(tg / hdl, 2)
+        except KeyError:
+            pass
+
+        return ratios
+
+    def cardiovascular_risk_score(self, report, ratios):
+        score = 0
+        risk_factors = []
+
+        if report.get("LDL", 0) > 130:
+            score += 1
+            risk_factors.append("High LDL")
+
+        if report.get("HDL", 100) < 40:
+            score += 1
+            risk_factors.append("Low HDL")
+
+        if report.get("Triglycerides", 0) > 150:
+            score += 1
+            risk_factors.append("High Triglycerides")
+
+        if ratios.get("TC_to_HDL", 0) > 5:
+            score += 1
+            risk_factors.append("High TC/HDL Ratio")
+
+        if report.get("Blood Pressure Systolic", 0) >= 140:
+            score += 1
+            risk_factors.append("High Blood Pressure")
+
+        risk_level = (
+            "Low" if score <= 1 else
+            "Moderate" if score <= 3 else
+            "High"
+        )
+
+        return {
+            "Score": score,
+            "Risk_Level": risk_level,
+            "Risk_Factors": risk_factors
+        }
+
+
+class Model3_ContextualAnalysis:
+    def __init__(self, age, gender):
+        self.age = age
+        self.gender = gender.lower()
+
+    def adjust_risk(self, base_risk):
+        adjusted_score = base_risk["Score"]
+        notes = []
+
+        if self.age >= 45 and self.gender == "male":
+            adjusted_score += 1
+            notes.append("Male age ≥45 increases CV risk")
+
+        if self.age >= 55 and self.gender == "female":
+            adjusted_score += 1
+            notes.append("Female age ≥55 increases CV risk")
+
+        adjusted_level = (
+            "Low" if adjusted_score <= 1 else
+            "Moderate" if adjusted_score <= 3 else
+            "High"
+        )
+
+        return {
+            "Adjusted_Score": adjusted_score,
+            "Adjusted_Risk_Level": adjusted_level,
+            "Context_Notes": notes
+        }
+
+
+class IntegratedHealthAnalyzer:
+    def __init__(self, csv_path, age=None, gender=None):
+        self.model1 = Model1_DataProcessor(csv_path)
+        self.model2 = Model2_RiskAssessment()
+        self.context = Model3_ContextualAnalysis(age, gender) if age and gender else None
+
+    def run(self):
+        reports = self.model1.preprocess()
+        final_results = {}
+
+        for rid, report in reports.items():
+            lipid_ratios = self.model2.calculate_lipid_ratios(report)
+            base_risk = self.model2.cardiovascular_risk_score(report, lipid_ratios)
+
+            result = {
+                "Lipid_Ratios": lipid_ratios,
+                "Base_Risk": base_risk
+            }
+
+            if self.context:
+                result["Contextual_Adjustment"] = self.context.adjust_risk(base_risk)
+
+            final_results[rid] = result
+
+        return final_results
+
+
+if __name__ == "__main__":
+    analyzer = IntegratedHealthAnalyzer(
+        csv_path="blood_reports.csv",
+        age=50,
+        gender="Male"
+    )
+
+    output = analyzer.run()
+
+    for report_id, details in output.items():
+        print(f"\n===== REPORT {report_id} =====")
+        print("Lipid Ratios:", details["Lipid_Ratios"])
+        print("Base Risk:", details["Base_Risk"])
+        if "Contextual_Adjustment" in details:
+            print("Contextual Risk:", details["Contextual_Adjustment"])

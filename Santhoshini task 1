@@ -1,0 +1,130 @@
+📂 Project Structure
+milestone1/
+│
+├── input/
+│   ├── report1.pdf
+│   ├── report2.json
+│
+├── reference_ranges.json
+├── extractor.py
+├── validator.py
+├── interpreter.py
+├── evaluator.py
+└── main.py
+
+
+
+1️⃣ Reference Ranges (reference_ranges.json)
+{
+  "Hemoglobin": {"min": 12.0, "max": 16.0, "unit": "g/dL"},
+  "WBC": {"min": 4000, "max": 11000, "unit": "cells/uL"},
+  "Platelets": {"min": 150000, "max": 450000, "unit": "cells/uL"},
+  "RBC": {"min": 4.2, "max": 5.9, "unit": "million/uL"}
+}
+
+
+2️⃣ Input Interface & Parser (extractor.py)
+import re
+import json
+import pdfplumber
+
+def extract_from_pdf(pdf_path):
+    text = ""
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() + "\n"
+    return text
+
+def extract_from_json(json_path):
+    with open(json_path, 'r') as f:
+        return json.load(f)
+
+def extract_parameters(text):
+    pattern = r"(Hemoglobin|WBC|Platelets|RBC)\s*[:\-]?\s*([\d,.]+)"
+    matches = re.findall(pattern, text, re.IGNORECASE)
+
+    extracted = {}
+    for param, value in matches:
+        extracted[param.capitalize()] = float(value.replace(',', ''))
+    return extracted
+
+3️⃣ Data Validation & Standardization (validator.py)
+
+def validate_and_standardize(data):
+    cleaned = {}
+    for param, value in data.items():
+        if value > 0:   # basic sanity check
+            cleaned[param] = round(value, 2)
+    return cleaned
+
+4️⃣ Model 1 – Parameter Interpretation (interpreter.py)
+import json
+
+with open("reference_ranges.json") as f:
+    RANGES = json.load(f)
+
+def classify_parameter(param, value):
+    if param not in RANGES:
+        return "Unknown"
+
+    low = RANGES[param]["min"]
+    high = RANGES[param]["max"]
+
+    if value < low:
+        return "Low"
+    elif value > high:
+        return "High"
+    else:
+        return "Normal"
+
+def interpret_all(data):
+    results = {}
+    for param, value in data.items():
+        results[param] = {
+            "value": value,
+            "status": classify_parameter(param, value)
+        }
+    return results
+
+5️⃣ Main Pipeline (main.py)
+from extractor import extract_from_pdf, extract_from_json, extract_parameters
+from validator import validate_and_standardize
+from interpreter import interpret_all
+
+def process_pdf(path):
+    text = extract_from_pdf(path)
+    extracted = extract_parameters(text)
+    validated = validate_and_standardize(extracted)
+    return interpret_all(validated)
+
+def process_json(path):
+    data = extract_from_json(path)
+    validated = validate_and_standardize(data)
+    return interpret_all(validated)
+
+if __name__ == "__main__":
+    result = process_pdf("input/report1.pdf")
+    for k, v in result.items():
+        print(k, "→", v)
+
+6️⃣ Evaluation Script (evaluator.py)
+def calculate_accuracy(predicted, actual):
+    correct = 0
+    for param in actual:
+        if param in predicted and predicted[param] == actual[param]:
+            correct += 1
+    return (correct / len(actual)) * 100
+
+# Example usage
+actual_labels = {
+    "Hemoglobin": "Normal",
+    "WBC": "High"
+}
+
+predicted_labels = {
+    "Hemoglobin": "Normal",
+    "WBC": "High"
+}
+
+accuracy = calculate_accuracy(predicted_labels, actual_labels)
+print("Classification Accuracy:", accuracy, "%")

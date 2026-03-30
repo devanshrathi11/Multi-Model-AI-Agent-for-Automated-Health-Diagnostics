@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SyncSphere – Unified Entry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue: #4285f4;
+      --red: #ea4335;
+      --yellow: #fbbc05;
+      --green: #34a853;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text: #202124;
+      --muted: #5f6368;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(60,64,67,0.18);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left,#e8f0fe,transparent 55%),
+                  radial-gradient(circle at bottom right,#e6f4ea,transparent 55%),
+                  var(--bg);
+      color: var(--text);
+    }
+    .shell {
+      max-width: 1180px;
+      margin: 24px auto 40px;
+      padding: 0 16px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background:
+        conic-gradient(from 220deg,
+          var(--blue) 0 25%,
+          var(--red) 25% 50%,
+          var(--yellow) 50% 75%,
+          var(--green) 75% 100%);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo::after {
+      content: "";
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--bg);
+    }
+    .brand-text-main {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .brand-text-sub {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .team-pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: #e8f0fe;
+      color: #174ea6;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    /* LANDING */
+    .landing {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px 22px 26px;
+      margin-bottom: 20px;
+    }
+    .landing-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+    .landing-title {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .landing-sub {
+      font-size: 0.95rem;
+      color: var(--muted);
+      max-width: 520px;
+    }
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #e8eaed;
+      color: var(--muted);
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+      gap: 16px;
+    }
+    .choice-card {
+      background: #f1f3f4;
+      border-radius: 14px;
+      padding: 16px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .choice-card.business::before {
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: rgba(52,168,83,0.18);
+      right: -30px;
+      top: -30px;
+    }
+    .choice-card.customer::before {
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: rgba(66,133,244,0.2);
+      right: -30px;
+      top: -30px;
+    }
+    .choice-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .choice-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .choice-desc {
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+    .choice-points {
+      font-size: 0.82rem;
+      color: var(--muted);
+      padding-left: 18px;
+      margin: 0 0 4px;
+    }
+    .choice-btn {
+      margin-top: 6px;
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: none;
+      padding: 7px 16px;
+      font-size: 0.86rem;
+      cursor: pointer;
+      background: #fff;
+      color: var(--blue);
+      box-shadow: 0 1px 4px rgba(60,64,67,0.3);
+    }
+    .choice-btn span.icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e8f0fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+    }
+
+    /* fake Google button */
+    .google-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid #dadce0;
+      background: #fff;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(60,64,67,0.2);
+    }
+    .google-btn img {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* PANELS */
+    .panel-wrapper {
+      margin-top: 18px;
+      display: none;
+    }
+    .panel-wrapper.active {
+      display: block;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .panel-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    .panel-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .badge {
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      background: #e8f0fe;
+      color: #174ea6;
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr);
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .landing-top { flex-direction: column; }
+      .grid-two { grid-template-columns: 1fr; }
+    }
+
+    /* Common mock window */
+    .mock {
+      background: #f1f3f4;
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .mock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .traffic {
+      display: flex;
+      gap: 4px;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #dadce0;
+    }
+    .dot.red { background: var(--red); }
+    .dot.yellow { background: var(--yellow); }
+    .dot.green { background: var(--green); }
+
+    /* Inputs */
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    input, select {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid #dadce0;
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 0.84rem;
+      outline: none;
+      background: #fff;
+    }
+    input:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 2px rgba(66,133,244,0.2);
+    }
+    .primary-btn {
+      margin-top: 6px;
+      border-radius: 999px;
+      border: none;
+      padding: 7px 16px;
+      font-size: 0.86rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(66,133,244,0.4);
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .chip-small {
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #e8eaed;
+      color: var(--muted);
+    }
+
+    .side-info h3 {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+    }
+    .side-info p {
+      margin: 0 0 6px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .side-info ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .ai-box {
+      margin-top: 8px;
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: #e6f4ea;
+      border-left: 4px solid var(--green);
+      font-size: 0.78rem;
+    }
+    .ai-box strong {
+      display: block;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #1e8e3e;
+      margin-bottom: 2px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(110px,1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .metric {
+      background: #fff;
+      border-radius: 10px;
+      padding: 7px 9px;
+      border: 1px solid #e0e0e0;
+      font-size: 0.76rem;
+    }
+    .metric-label { color: var(--muted); }
+    .metric-value { font-weight: 600; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .tab-btn {
+      border-radius: 999px;
+      padding: 4px 12px;
+      border: 1px solid transparent;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: #f1f3f4;
+      color: var(--muted);
+    }
+    .tab-btn.active {
+      background: #e8f0fe;
+      border-color: #d2e3fc;
+      color: #174ea6;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="brand-text-main">SyncSphere</div>
+          <div class="brand-text-sub">AI-orchestrated operating layer on Google Cloud + Workspace</div>
+        </div>
+      </div>
+      <div class="team-pill">Team X – Vinay · Saiteja · Naga Charan · Sai</div>
+    </header>
+
+    <!-- LANDING / ROLE CHOICE -->
+    <section class="landing">
+      <div class="landing-top">
+        <div>
+          <div class="landing-title">One entry, three experiences.</div>
+          <div class="landing-sub">
+            Single URL. We detect whether you are a customer or a business, sign you in with Google,
+            and route you to the right interface – without breaking the Google ecosystem.
+          </div>
+          <div class="chips-row">
+            <span class="chip">Firebase Auth – Google provider</span>
+            <span class="chip">Role claims: customer / owner / staff</span>
+            <span class="chip">Same domain, different surfaces</span>
+          </div>
+        </div>
+        <div>
+          <!-- fake Google sign-in for demo -->
+          <button class="google-btn" id="dummy-google">
+            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="G" />
+            <span>Sign in with Google (demo)</span>
+          </button>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">
+            In production this button is Firebase Auth → Google provider.
+          </div>
+        </div>
+      </div>
+
+      <div class="choice-grid">
+        <div class="choice-card business">
+          <div class="choice-label">For business</div>
+          <div class="choice-title">I run or manage a spa / salon / clinic / studio</div>
+          <div class="choice-desc">
+            You get the owner dashboard and staff interface. Customers never see this side.
+          </div>
+          <ul class="choice-points">
+            <li>Monitor bookings, queue and revenue in real-time</li>
+            <li>Configure services, pricing and staff schedules</li>
+            <li>Launch Gemini-powered campaigns and follow-ups</li>
+          </ul>
+          <button class="choice-btn" data-target="business">
+            <span class="icon">B</span>
+            <span>Continue as business</span>
+          </button>
+        </div>
+
+        <div class="choice-card customer">
+          <div class="choice-label">For personal use</div>
+          <div class="choice-title">I want to book or track my visit</div>
+          <div class="choice-desc">
+            You get a single, light-weight booking + Wallet experience, no dashboard complexity.
+          </div>
+          <ul class="choice-points">
+            <li>Book in under 30 seconds</li>
+            <li>Get a Google Wallet pass as your queue + loyalty card</li>
+            <li>See reminders via Gmail / notifications</li>
+          </ul>
+          <button class="choice-btn" data-target="customer">
+            <span class="icon">C</span>
+            <span>Continue as customer</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CUSTOMER PANEL -->
+    <section id="panel-customer" class="panel-wrapper">
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <div class="panel-label">Interface · Customer</div>
+            <div class="panel-title">Booking Link & Wallet Pass</div>
+          </div>
+          <span class="badge">Google Wallet + Calendar</span>
+        </div>
+
+        <div class="grid-two">
+          <div class="mock">
+            <div class="mock-header">
+              <span>booking.syncsphere.app</span>
+              <div class="traffic">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:0.84rem;">
+              <div>
+                <label for="svc">Select service</label>
+                <select id="svc">
+                  <option>Signature Spa Session · 60 min</option>
+                  <option>Haircut + Styling · 45 min</option>
+                  <option>Facial Glow Treatment · 50 min</option>
+                </select>
+              </div>
+              <div class="grid-two" style="gap:8px;">
+                <div>
+                  <label for="date">Date</label>
+                  <input id="date" type="date">
+                </div>
+                <div>
+                  <label for="slot">Smart slot (Gemini)</label>
+                  <select id="slot">
+                    <option>Suggest best time</option>
+                    <option>10:30 · Low wait</option>
+                    <option>16:15 · Balanced</option>
+                    <option>19:00 · Peak</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label for="name">Your name</label>
+                <input id="name" placeholder="e.g. Ananya" />
+              </div>
+              <button class="primary-btn">Book &amp; add to Google Wallet</button>
+              <div class="chip-row">
+                <span class="chip-small">Wallet pass = queue + loyalty</span>
+                <span class="chip-small">Auto Calendar event</span>
+                <span class="chip-small">Live queue ETA</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-info">
+            <h3>What the customer sees</h3>
+            <p>
+              One clean Google-like page. No app download, optional Google sign-in.
+              Behind the scenes we call Calendar, Wallet, Firestore and Gmail.
+            </p>
+            <ul>
+              <li>Choose service, date and time</li>
+              <li>Gemini recommends low-stress slots using schedule + Maps</li>
+              <li>Wallet pass becomes the single key for check-in, queue, loyalty</li>
+            </ul>
+            <div class="ai-box">
+              <strong>Gemini in this screen</strong>
+              Computes recommended times and no-show risk, so the default option is best for both customer and business.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BUSINESS PANEL (owner + staff tabs) -->
+    <section id="panel-business" class="panel-wrapper">
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <div class="panel-label">Interface · Business</div>
+            <div class="panel-title">Owner Dashboard & Staff Surface</div>
+          </div>
+          <span class="badge">Role-based on Google Auth</span>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="owner">Owner view</button>
+          <button class="tab-btn" data-tab="staff">Staff view</button>
+        </div>
+
+        <!-- Owner view -->
+        <div id="tab-owner" class="grid-two">
+          <div class="mock">
+            <div class="mock-header">
+              <span>dashboard.syncsphere.app</span>
+              <div class="traffic">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+              </div>
+            </div>
+            <div style="font-size:0.82rem;">
+              <div class="metrics">
+                <div class="metric">
+                  <div class="metric-label">Today’s bookings</div>
+                  <div class="metric-value">42</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Live queue</div>
+                  <div class="metric-value">7 customers</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Projected revenue</div>
+                  <div class="metric-value">₹58,400</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">No-show risk</div>
+                  <div class="metric-value">12%</div>
+                </div>
+              </div>
+              <div class="chip-row" style="margin-top:8px;">
+                <span class="chip-small">Calendar-synced schedule</span>
+                <span class="chip-small">Wallet analytics</span>
+                <span class="chip-small">Staff utilisation</span>
+              </div>
+              <div class="ai-box" style="margin-top:10px;">
+                <strong>Gemini summary</strong>
+                “Peak load expected 5–7 PM. Open 1 extra slot and push offers to nearby Silver segment to lift revenue by ~₹9K.”
+              </div>
+            </div>
+          </div>
+
+          <div class="side-info">
+            <h3>What the owner sees</h3>
+            <p>
+              A single control plane for the entire business. All data flows from the same source of truth in Firestore / BigQuery.
+            </p>
+            <ul>
+              <li>Real-time view of bookings, queue, and staff load</li>
+              <li>Configure services, pricing, working hours per location</li>
+              <li>Launch “fill empty slots”, “reward regulars” campaigns via Gmail</li>
+            </ul>
+            <div class="ai-box" style="background:#fff8e1;border-left-color:var(--yellow);">
+              <strong>Decisions, not dashboards</strong>
+              Gemini doesn’t just show charts – it outputs concrete actions: open slots, call back list, who to reward.
+            </div>
+          </div>
+        </div>
+
+        <!-- Staff view -->
+        <div id="tab-staff" class="grid-two hidden">
+          <div class="mock">
+            <div class="mock-header">
+              <span>staff.syncsphere.app</span>
+              <div class="traffic">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:0.82rem;">
+              <div>
+                <label for="pass">Scan / enter Wallet Pass</label>
+                <input id="pass" placeholder="SPAX-Q17-3B" />
+              </div>
+              <div class="chip-row">
+                <span class="chip-small">Loyalty: Gold</span>
+                <span class="chip-small">Visits: 7</span>
+                <span class="chip-small">Prefers aromatherapy</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:6px;">
+                <button class="primary-btn">Start service</button>
+                <button class="primary-btn" style="background:#fff;color:var(--blue);box-shadow:none;border:1px solid #dadce0;">Complete</button>
+              </div>
+              <div>
+                <label for="note">Quick note</label>
+                <input id="note" placeholder="e.g. sensitive skin, likes low music" />
+              </div>
+            </div>
+          </div>
+
+          <div class="side-info">
+            <h3>What the staff sees</h3>
+            <p>
+              Zero dashboard complexity. Three actions only – scan, start, complete – and quick notes that enrich history.
+            </p>
+            <ul>
+              <li>Each scan updates queue, loyalty and visit history in Firestore</li>
+              <li>Status is reflected instantly in owner dashboard and Calendar</li>
+              <li>Latency kept low via Firebase + Cloud Run</li>
+            </ul>
+            <div class="ai-box" style="background:#e8f0fe;border-left-color:var(--blue);">
+              <strong>AI assist on the floor</strong>
+              Gemini prompts staff: “Offer upgrade”, “Check allergy note”, “Suggest follow-up in 4 weeks”.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const choiceButtons = document.querySelectorAll(".choice-btn");
+    const customerPanel = document.getElementById("panel-customer");
+    const businessPanel = document.getElementById("panel-business");
+
+    choiceButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const target = btn.getAttribute("data-target");
+        if (target === "customer") {
+          customerPanel.classList.add("active");
+          businessPanel.classList.remove("active");
+          customerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          businessPanel.classList.add("active");
+          customerPanel.classList.remove("active");
+          businessPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
+
+    // tabs inside business view
+    const tabButtons = document.querySelectorAll(".tab-btn");
+    const ownerTab = document.getElementById("tab-owner");
+    const staffTab = document.getElementById("tab-staff");
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const which = btn.getAttribute("data-tab");
+        if (which === "owner") {
+          ownerTab.classList.remove("hidden");
+          staffTab.classList.add("hidden");
+        } else {
+          staffTab.classList.remove("hidden");
+          ownerTab.classList.add("hidden");
+        }
+      });
+    });
+  </script>
+</body>
+</html>

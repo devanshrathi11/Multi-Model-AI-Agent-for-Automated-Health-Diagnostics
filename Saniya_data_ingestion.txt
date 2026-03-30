@@ -1,0 +1,28 @@
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv('blood_reports_large.csv')
+
+bounds = {
+    'Hemoglobin_gdl': (5, 22),
+    'FastingGlucose_mgdl': (40, 400),
+    'TotalCholesterol_mgdl': (80, 400),
+    'LDL_mgdl': (20, 300),
+    'HDL_mgdl': (10, 110),
+    'Triglycerides_mgdl': (30, 800),
+    'Creatinine_mgdl': (0.4, 3.0),
+    'Urea_mgdl': (5, 100),
+    'TSH_uIUml': (0.01, 30),
+    'VitaminD_ngml': (5, 100),
+}
+for col, (low, high) in bounds.items():
+    df[col] = df[col].clip(low, high)
+
+df['Glucose_mmol'] = (df['FastingGlucose_mgdl'] / 18.0).round(2)
+df['TotalCholesterol_mmol'] = (df['TotalCholesterol_mgdl'] / 38.67).round(2)
+df['LDL_mmol'] = (df['LDL_mgdl'] / 38.67).round(2)
+df['HDL_mmol'] = (df['HDL_mgdl'] / 38.67).round(2)
+df['Triglycerides_mmol'] = (df['Triglycerides_mgdl'] / 88.57).round(2)
+
+print("Cleaned & standardized columns added.")
+df.head()

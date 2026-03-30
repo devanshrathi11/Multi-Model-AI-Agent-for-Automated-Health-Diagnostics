@@ -1,0 +1,115 @@
+class LipidPatternAnalyzer:
+    def __init__(self, report_data):
+        self.report = report_data
+
+    def lipid_ratios(self):
+        ratios = {}
+        try:
+            ratios["TC_to_HDL"] = round(self.report["Total Cholesterol"] / self.report["HDL"], 2)
+            ratios["LDL_to_HDL"] = round(self.report["LDL"] / self.report["HDL"], 2)
+            ratios["TG_to_HDL"] = round(self.report["Triglycerides"] / self.report["HDL"], 2)
+        except KeyError:
+            pass
+        return ratios
+
+
+class CardiovascularRiskScorer:
+    def __init__(self, report_data, ratios):
+        self.report = report_data
+        self.ratios = ratios
+
+    def calculate_risk(self):
+        score = 0
+        factors = []
+
+        if self.report.get("LDL", 0) > 130:
+            score += 1
+            factors.append("High LDL")
+
+        if self.report.get("HDL", 100) < 40:
+            score += 1
+            factors.append("Low HDL")
+
+        if self.report.get("Triglycerides", 0) > 150:
+            score += 1
+            factors.append("High Triglycerides")
+
+        if self.ratios.get("TC_to_HDL", 0) > 5:
+            score += 1
+            factors.append("High TC/HDL Ratio")
+
+        if self.report.get("Blood Pressure Systolic", 0) >= 140:
+            score += 1
+            factors.append("High Blood Pressure")
+
+        risk_level = (
+            "Low" if score <= 1 else
+            "Moderate" if score <= 3 else
+            "High"
+        )
+
+        return {
+            "Score": score,
+            "Risk_Level": risk_level,
+            "Risk_Factors": factors
+        }
+
+
+class HealthRiskAnalyzer:
+    def __init__(self, reports):
+        self.reports = reports
+
+    def analyze(self):
+        results = {}
+
+        for report_id, report_data in self.reports.items():
+            lipid = LipidPatternAnalyzer(report_data)
+            ratios = lipid.lipid_ratios()
+
+            risk = CardiovascularRiskScorer(report_data, ratios)
+            risk_result = risk.calculate_risk()
+
+            results[report_id] = {
+                "Lipid_Ratios": ratios,
+                "Risk_Assessment": risk_result
+            }
+
+        return results
+
+
+
+
+reports = {
+    "R1": {
+        "Total Cholesterol": 220,
+        "HDL": 38,
+        "LDL": 145,
+        "Triglycerides": 190,
+        "Blood Pressure Systolic": 140
+    }
+}
+
+analyzer = HealthRiskAnalyzer(reports)
+output = analyzer.analyze()
+
+for rid, result in output.items():
+    print("Report ID:", rid)
+    print("Lipid Ratios:", result["Lipid_Ratios"])
+    print("Risk Assessment:", result["Risk_Assessment"])
+
+
+
+
+Report ID: R1
+Lipid Ratios: {'TC_to_HDL': 5.79, 'LDL_to_HDL': 3.82, 'TG_to_HDL': 5.0}
+Risk Assessment: {
+  'Score': 5,
+  'Risk_Level': 'High',
+  'Risk_Factors': [
+    'High LDL',
+    'Low HDL',
+    'High Triglycerides',
+    'High TC/HDL Ratio',
+    'High Blood Pressure'
+  ]
+}

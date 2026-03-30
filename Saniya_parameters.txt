@@ -1,0 +1,59 @@
+ref_ranges_general = {
+    'FastingGlucose_mgdl': (70, 100),         # mg/dL (fasting)
+    'TotalCholesterol_mgdl': (0, 200),        # desirable <200
+    'LDL_mgdl': (0, 130),                     # near-optimal <130
+    'HDL_mgdl': (40, np.inf),                 # low if <40
+    'Triglycerides_mgdl': (0, 150),           # normal <150
+    'Creatinine_mgdl': (0.6, 1.3),
+    'Urea_mgdl': (20, 40),
+    'TSH_uIUml': (0.4, 4.0),
+    'VitaminD_ngml': (20, 50),
+}
+
+def hemo_range(gender):
+    return (13.5, 17.5) if gender == 'Male' else (12.0, 15.5)
+
+def classify_param(value, low, high, invert_low=False):
+   
+    if invert_low:
+        if value < low: return 'Low'
+        if value > high: return 'High'
+        return 'Normal'
+    else:
+        if value < low: return 'Low'
+        if value > high: return 'High'
+        return 'Normal'
+
+
+status_cols = {}
+df['Hemoglobin_status'] = df.apply(lambda r: classify_param(
+    r['Hemoglobin_gdl'], *hemo_range(r['Gender']), invert_low=False), axis=1)
+
+df['Glucose_status'] = df.apply(lambda r: classify_param(
+    r['FastingGlucose_mgdl'], *ref_ranges_general['FastingGlucose_mgdl']), axis=1)
+
+df['TotalCholesterol_status'] = df.apply(lambda r: classify_param(
+    r['TotalCholesterol_mgdl'], *ref_ranges_general['TotalCholesterol_mgdl']), axis=1)
+
+df['LDL_status'] = df.apply(lambda r: classify_param(
+    r['LDL_mgdl'], *ref_ranges_general['LDL_mgdl']), axis=1)
+
+df['HDL_status'] = df.apply(lambda r: classify_param(
+    r['HDL_mgdl'], 40, 60, invert_low=True), axis=1)  # low<40, high>60
+
+df['Triglycerides_status'] = df.apply(lambda r: classify_param(
+    r['Triglycerides_mgdl'], *ref_ranges_general['Triglycerides_mgdl']), axis=1)
+
+df['Creatinine_status'] = df.apply(lambda r: classify_param(
+    r['Creatinine_mgdl'], *ref_ranges_general['Creatinine_mgdl']), axis=1)
+
+df['Urea_status'] = df.apply(lambda r: classify_param(
+    r['Urea_mgdl'], *ref_ranges_general['Urea_mgdl']), axis=1)
+
+df['TSH_status'] = df.apply(lambda r: classify_param(
+    r['TSH_uIUml'], *ref_ranges_general['TSH_uIUml']), axis=1)
+
+df['VitaminD_status'] = df.apply(lambda r: classify_param(
+    r['VitaminD_ngml'], *ref_ranges_general['VitaminD_ngml']), axis=1)
+
+print(df.filter(like='_status').head())

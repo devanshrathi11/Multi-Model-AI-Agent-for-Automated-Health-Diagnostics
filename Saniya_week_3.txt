@@ -1,0 +1,31 @@
+df['LDL_to_HDL'] = (df['LDL_mgdl'] / df['HDL_mgdl']).replace([np.inf, -np.inf], np.nan).fillna(0).round(2)
+df['TG_to_HDL'] = (df['Triglycerides_mgdl'] / df['HDL_mgdl']).replace([np.inf, -np.inf], np.nan).fillna(0).round(2)
+df['NonHDL_mgdl'] = (df['TotalCholesterol_mgdl'] - df['HDL_mgdl']).round(1)
+
+def pattern_flags(row):
+    flags = []
+    if row['FastingGlucose_mgdl'] >= 126:
+        flags.append('Possible diabetes (fasting glucose ≥126 mg/dL)')
+    elif row['FastingGlucose_mgdl'] >= 100:
+        flags.append('Prediabetes range (fasting glucose 100–125 mg/dL)')
+    if row['LDL_mgdl'] >= 160:
+        flags.append('High LDL (≥160 mg/dL)')
+    if row['HDL_mgdl'] < 40:
+        flags.append('Low HDL (<40 mg/dL)')
+    if row['Triglycerides_mgdl'] >= 200:
+        flags.append('High triglycerides (≥200 mg/dL)')
+    if row['LDL_to_HDL'] > 3.5:
+        flags.append('Unfavorable LDL/HDL ratio (>3.5)')
+    if row['NonHDL_mgdl'] >= 160:
+        flags.append('High non-HDL cholesterol (≥160 mg/dL)')
+    if row['Creatinine_mgdl'] > 1.3 and row['Urea_mgdl'] > 40:
+        flags.append('Kidney function concern (creatinine & urea elevated)')
+    if row['TSH_uIUml'] > 4.2:
+        flags.append('Possible hypothyroid (TSH >4.2)')
+    if row['VitaminD_ngml'] < 20:
+        flags.append('Vitamin D deficiency (<20 ng/mL)')
+    return flags
+
+df['PatternFlags'] = df.apply(pattern_flags, axis=1)
+
+df[['PatientID','LDL_to_HDL','TG_to_HDL','NonHDL_mgdl','PatternFlags']].head()

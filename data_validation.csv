@@ -1,0 +1,72 @@
+# validator.py
+
+REFERENCE_UNITS = {
+    "Hemoglobin": "g/dL",
+    "WBC": "cells/uL",
+    "Platelets": "cells/uL",
+    "RBC": "million/uL"
+}
+
+VALID_RANGES = {
+    "Hemoglobin": (0, 25),
+    "WBC": (0, 200000),
+    "Platelets": (0, 1000000),
+    "RBC": (0, 10)
+}
+
+def validate_and_standardize(records):
+    """
+    records: list of dicts with keys
+    Report_ID, Parameter, Value, Unit
+    """
+    cleaned_data = []
+
+    for row in records:
+        try:
+            param = row["Parameter"]
+            value = float(row["Value"])
+            unit = row["Unit"]
+
+            
+            if param not in REFERENCE_UNITS:
+                continue
+
+           
+            if unit != REFERENCE_UNITS[param]:
+                continue
+
+            
+            min_val, max_val = VALID_RANGES[param]
+            if not (min_val <= value <= max_val):
+                continue
+
+            cleaned_data.append({
+                "Report_ID": row["Report_ID"],
+                "Parameter": param,
+                "Value": round(value, 2),
+                "Unit": unit
+            })
+
+        except Exception:
+            # Skip malformed rows
+            continue
+
+    return cleaned_data
+
+
+
+
+
+import csv
+from validator import validate_and_standardize
+
+def load_csv(path):
+    with open(path, 'r') as f:
+        return list(csv.DictReader(f))
+
+raw_data = load_csv("data/all_blood_reports.csv")
+validated_data = validate_and_standardize(raw_data)
+
+for row in validated_data:
+    print(row)
+
