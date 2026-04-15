@@ -11,6 +11,7 @@ import { isAuthenticated, getUser, logout as apiLogout, setOnAuthError } from ".
 
 type Screen =
   | "landing"
+  
   | "auth"
   | "upload"
   | "processing"
