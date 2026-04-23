@@ -1,4 +1,4 @@
-def build_report_row(row):
+def build_report_row(row): 
     return {
         'PatientID': row['PatientID'],
         'Age': row['Age'],
