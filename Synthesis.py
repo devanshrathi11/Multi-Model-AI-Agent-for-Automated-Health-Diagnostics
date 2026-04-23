@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from dataclasses import dataclass
 from typing import List
-
+     
 # -------------------- MODELS --------------------
 
 @dataclass
