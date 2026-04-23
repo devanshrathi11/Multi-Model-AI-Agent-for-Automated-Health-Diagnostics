@@ -3,7 +3,6 @@ import json
 from typing import Dict, List, Any
 
 
-
 class HealthDiagnosticsAgent:
     def __init__(self):
         # Reference ranges for Task 3 (Model 1) 
