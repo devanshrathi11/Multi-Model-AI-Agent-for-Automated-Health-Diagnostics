@@ -4,7 +4,7 @@ df['NonHDL_mgdl'] = (df['TotalCholesterol_mgdl'] - df['HDL_mgdl']).round(1)
 
 def pattern_flags(row):
     flags = []
-    if row['FastingGlucose_mgdl'] >= 126:
+    if row['FastingGlucose_mgdl'] >= 126:  
         flags.append('Possible diabetes (fasting glucose ≥126 mg/dL)')
     elif row['FastingGlucose_mgdl'] >= 100:
         flags.append('Prediabetes range (fasting glucose 100–125 mg/dL)')
