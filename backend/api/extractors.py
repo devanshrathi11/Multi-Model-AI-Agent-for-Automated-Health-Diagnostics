@@ -75,12 +75,25 @@ def detect_file_type(file_path: Path) -> str:
 def extract_pdf_text(file_path: Path) -> str:
     """
     Extract text from digital PDFs using PyMuPDF.
+    Includes detailed logging for debugging.
     """
     text = ""
     try:
         with fitz.open(file_path) as doc:
-            for page in doc:
-                text += page.get_text()
+            print(f"📄 PDF opened successfully: {file_path.name}")
+            print(f"   Total pages: {len(doc)}")
+            
+            for page_num, page in enumerate(doc):
+                page_text = page.get_text()
+                text += page_text
+                print(f"   Page {page_num + 1}: {len(page_text)} characters extracted")
+            
+            print(f"✅ Total text extracted: {len(text)} characters")
+            
+            # Log first 500 characters for debugging
+            if text:
+                print(f"\n📋 First 500 characters of extracted text:")
+                print("   " + repr(text[:500]))
     except Exception as e:
         print(f"❌ PDF Extraction Error: {e}")
 
@@ -183,7 +196,12 @@ def extract_text(file_path: Path) -> str:
         return ""
 
     file_type = detect_file_type(file_path)
-    print(f"🔍 Extraction Engine: Processing {file_type} file...")
+    print(f"\n{'='*60}")
+    print(f"📂 FILE EXTRACTION ENGINE")
+    print(f"{'='*60}")
+    print(f"🔍 File: {file_path.name}")
+    print(f"🔍 Type: {file_type}")
+    print(f"🔍 Size: {file_path.stat().st_size} bytes")
 
     if file_type == "pdf":
         text = extract_pdf_text(file_path)
@@ -207,19 +225,25 @@ def extract_text(file_path: Path) -> str:
                 combined = "\n".join(ocr_results).strip()
                 if not combined:
                     raise ValueError("OCR fallback returned empty text from scanned PDF.")
+                print(f"✅ OCR extraction successful: {len(combined)} characters")
                 return combined
             except RuntimeError:
                 raise
             except Exception as e:
                 print(f"❌ OCR Fallback failed: {e}")
                 raise RuntimeError(f"Failed to extract text from scanned PDF: {e}")
+        print(f"✅ PDF extraction successful: {len(text)} characters")
         return text
 
     if file_type == "image":
-        return extract_image_text(file_path)
+        result = extract_image_text(file_path)
+        print(f"✅ Image extraction successful: {len(result)} characters")
+        return result
 
     if file_type == "csv":
-        return extract_csv_text(file_path)
+        result = extract_csv_text(file_path)
+        print(f"✅ CSV extraction successful: {len(result)} characters")
+        return result
 
     print(f"❌ Unsupported file type detected: {file_type}")
     return ""

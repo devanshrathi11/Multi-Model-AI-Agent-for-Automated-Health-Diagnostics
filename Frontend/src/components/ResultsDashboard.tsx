@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import {
   AlertTriangle, Activity, RefreshCcw, ChevronDown, ChevronUp,
-  User, Calendar, HeartPulse, History, ArrowUpRight,
+  User, Calendar, History, ArrowUpRight,
   Brain, CheckCircle2, Stethoscope, Printer, LogOut, CalendarDays,
-  Sparkles, TrendingUp, ArrowUp, ArrowDown, FileText,
+  Sparkles, ArrowUp, ArrowDown, FileText,
   Zap, FlaskConical, ClipboardList, Target,
 } from "lucide-react";
 import {
@@ -40,10 +40,10 @@ interface Param {
    STATUS CONFIG
 ───────────────────────────────────────── */
 const STATUS_CONFIG = {
-  normal:   { label: "Normal",   badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", bar: "#10b981", border: "border-l-emerald-500",  icon: CheckCircle2, glow: "" },
-  low:      { label: "Low",      badge: "bg-sky-500/15 text-sky-400 border-sky-500/25",             bar: "#38bdf8", border: "border-l-sky-400",      icon: ArrowDown,    glow: "" },
-  high:     { label: "High",     badge: "bg-amber-500/15 text-amber-400 border-amber-500/25",       bar: "#f59e0b", border: "border-l-amber-400",    icon: ArrowUp,      glow: "" },
-  critical: { label: "Critical", badge: "bg-rose-500/15 text-rose-400 border-rose-500/25",          bar: "#ef4444", border: "border-l-rose-500",     icon: AlertTriangle, glow: "shadow-rose-900/50" },
+  normal: { label: "Normal", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", bar: "#10b981", border: "border-l-emerald-500", icon: CheckCircle2, glow: "" },
+  low: { label: "Low", badge: "bg-sky-500/15 text-sky-400 border-sky-500/25", bar: "#38bdf8", border: "border-l-sky-400", icon: ArrowDown, glow: "" },
+  high: { label: "High", badge: "bg-amber-500/15 text-amber-400 border-amber-500/25", bar: "#f59e0b", border: "border-l-amber-400", icon: ArrowUp, glow: "" },
+  critical: { label: "Critical", badge: "bg-rose-500/15 text-rose-400 border-rose-500/25", bar: "#ef4444", border: "border-l-rose-500", icon: AlertTriangle, glow: "shadow-rose-900/50" },
 };
 
 /* ─────────────────────────────────────────
@@ -62,33 +62,37 @@ export default function ResultsDashboard({
   /* ---- DATA PREP ---- */
   const audit = result?.audit || {};
   const profile = {
-    name:    result?.user_profile?.name   || "Patient",
-    age:     result?.user_profile?.age    || "—",
-    gender:  result?.user_profile?.gender || "—",
-    date:    new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-    file:    uploadedFile?.name || result?.meta?.filename || "Medical Report",
+    name: result?.user_profile?.name || "Patient",
+    age: result?.user_profile?.age || "—",
+    gender: result?.user_profile?.gender || "—",
+    date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+    file: uploadedFile?.name || result?.meta?.filename || "Medical Report",
   };
 
   const normStatus = (s: string): Param["status"] => {
     const v = (s || "").toLowerCase();
     if (v.includes("critical")) return "critical";
-    if (v.includes("high"))     return "high";
-    if (v.includes("low"))      return "low";
+    if (v.includes("high")) return "high";
+    if (v.includes("low")) return "low";
     return "normal";
   };
 
   const params: Param[] = Array.isArray(result?.parameters)
     ? result.parameters.map((p: any) => ({
-        name:        String(p?.name  ?? "Unknown"),
-        value:       String(p?.value ?? "—"),
-        unit:        String(p?.unit  ?? ""),
-        normalRange: String(p?.normalRange ?? "—"),
-        status:      normStatus(String(p?.status ?? "normal")),
-        confidence:  Number(p?.confidence ?? 0.85),
-        explanation: String(p?.explanation ?? "Consult your healthcare provider for interpretation."),
-        red_flag:    Boolean(p?.red_flag ?? false),
-      }))
+      name: String(p?.name ?? "Unknown"),
+      value: String(p?.value ?? "—"),
+      unit: String(p?.unit ?? ""),
+      normalRange: String(p?.normalRange ?? "—"),
+      status: normStatus(String(p?.status ?? "normal")),
+      confidence: Number(p?.confidence ?? 0.85),
+      explanation: String(p?.explanation ?? "Consult your healthcare provider for interpretation."),
+      red_flag: Boolean(p?.red_flag ?? false),
+    }))
     : [];
+
+  // ✅ Check for error status (no parameters or parse error)
+  const analysisStatus = result?.audit?.status || "success";
+  const hasNoParameters = params.length === 0 || analysisStatus === "no-parameters" || analysisStatus === "parse-error";
 
   // counts
   const counts = params.reduce(
@@ -96,24 +100,24 @@ export default function ResultsDashboard({
     { normal: 0, low: 0, high: 0, critical: 0 }
   );
 
-  const critList     = params.filter(p => p.status === "critical" || p.red_flag);
+  const critList = params.filter(p => p.status === "critical" || p.red_flag);
   const abnormalList = params.filter(p => p.status !== "normal");
-  const normalList   = params.filter(p => p.status === "normal");
+  const normalList = params.filter(p => p.status === "normal");
 
   const displayed =
     filter === "critical" ? critList :
-    filter === "abnormal" ? abnormalList :
-    filter === "normal"   ? normalList   : params;
+      filter === "abnormal" ? abnormalList :
+        filter === "normal" ? normalList : params;
 
-  const organScores   = result?.organ_scores   || { metabolic: 72, cardiac: 80, renal: 68, hepatic: 75, hematologic: 79 };
-  const doctorNote    = result?.doctor_perspective || "A comprehensive clinical evaluation is recommended.";
-  const summary       = result?.summary || "";
-  const diseaseRisks  = result?.disease_risks  || [];
-  const preventTips   = result?.prevention_tips || [];
+  const organScores = result?.organ_scores || { metabolic: 72, cardiac: 80, renal: 68, hepatic: 75, hematologic: 79 };
+  const doctorNote = result?.doctor_perspective || "A comprehensive clinical evaluation is recommended.";
+  const summary = result?.summary || "";
+  const diseaseRisks = result?.disease_risks || [];
+  const preventTips = result?.prevention_tips || [];
   const hasHealthPlan = (result?.health_plan?.length || 0) > 0;
-  const healthScore   = result?.risk_metrics?.health_score || 0;
-  const overallRisk   = result?.risk_metrics?.overall_risk || "—";
-  const disclaimer    = result?.medical_disclaimer || "AI-generated analysis. Not medical advice.";
+  const healthScore = result?.risk_metrics?.health_score || 0;
+  const overallRisk = result?.risk_metrics?.overall_risk || "—";
+  const disclaimer = result?.medical_disclaimer || "AI-generated analysis. Not medical advice.";
 
   const scoreColor = healthScore >= 75 ? "#10b981" : healthScore >= 45 ? "#f59e0b" : "#ef4444";
   const scoreLabel = healthScore >= 75 ? "Healthy" : healthScore >= 45 ? "Needs Attention" : "At Risk";
@@ -122,28 +126,28 @@ export default function ResultsDashboard({
   const radialData = [{ name: "Health", value: healthScore, fill: scoreColor }];
 
   const pieData = [
-    { name: "Normal",   value: counts.normal,   fill: "#10b981" },
-    { name: "Low",      value: counts.low,       fill: "#38bdf8" },
-    { name: "High",     value: counts.high,      fill: "#f59e0b" },
-    { name: "Critical", value: counts.critical,  fill: "#ef4444" },
+    { name: "Normal", value: counts.normal, fill: "#10b981" },
+    { name: "Low", value: counts.low, fill: "#38bdf8" },
+    { name: "High", value: counts.high, fill: "#f59e0b" },
+    { name: "Critical", value: counts.critical, fill: "#ef4444" },
   ].filter(d => d.value > 0);
 
   const organData = Object.entries(organScores).map(([k, v]) => ({
-    name:  k.charAt(0).toUpperCase() + k.slice(1),
+    name: k.charAt(0).toUpperCase() + k.slice(1),
     score: v as number,
-    fill:  (v as number) >= 75 ? "#10b981" : (v as number) >= 50 ? "#f59e0b" : "#ef4444",
+    fill: (v as number) >= 75 ? "#10b981" : (v as number) >= 50 ? "#f59e0b" : "#ef4444",
   }));
 
   /* ─── STYLE SHORTCUTS ─── */
   const dk = isDarkMode;
-  const bg       = dk ? "bg-[#0C1120]"       : "bg-[#F4F7FB]";
-  const surface  = dk ? "bg-[#121929]"       : "bg-white";
-  const border   = dk ? "border-slate-800"   : "border-slate-200";
-  const tp       = dk ? "text-white"         : "text-slate-900";
-  const ts       = dk ? "text-slate-400"     : "text-slate-500";
-  const divider  = dk ? "divide-slate-800"   : "divide-slate-100";
+  const bg = dk ? "bg-[#0C1120]" : "bg-[#F4F7FB]";
+  const surface = dk ? "bg-[#121929]" : "bg-white";
+  const border = dk ? "border-slate-800" : "border-slate-200";
+  const tp = dk ? "text-white" : "text-slate-900";
+  const ts = dk ? "text-slate-400" : "text-slate-500";
+  const divider = dk ? "divide-slate-800" : "divide-slate-100";
   const hoverRow = dk ? "hover:bg-white/[0.02]" : "hover:bg-slate-50/80";
-  const expBg    = dk ? "bg-[#0F1826]"       : "bg-slate-50";
+  const expBg = dk ? "bg-[#0F1826]" : "bg-slate-50";
 
   /* ─────────────────────────────────────────
      RENDER
@@ -187,7 +191,6 @@ export default function ResultsDashboard({
       </nav>
 
       <main className="max-w-6xl mx-auto px-5 py-8 space-y-6">
-
         {/* ══════════ AI SUMMARY BANNER ══════════ */}
         {summary && (
           <div className={`rounded-2xl p-5 border ${dk ? "bg-indigo-950/40 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"} flex items-start gap-4`}>
@@ -201,45 +204,34 @@ export default function ResultsDashboard({
           </div>
         )}
 
-        {/* ══════════ 4 METRIC CARDS ══════════ */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Health Score",  value: `${healthScore}%`, sub: scoreLabel,     color: scoreColor,  icon: HeartPulse,    pill: scoreBadge },
-            { label: "Normal",        value: counts.normal,     sub: "Parameters",    color: "#10b981",   icon: CheckCircle2,  pill: "bg-emerald-500/15 text-emerald-400" },
-            { label: "Abnormal",      value: counts.high + counts.low, sub: "Hi/Lo", color: "#f59e0b",   icon: TrendingUp,    pill: "bg-amber-500/15 text-amber-400" },
-            { label: "Critical",      value: counts.critical,   sub: "Flags",         color: "#ef4444",   icon: AlertTriangle, pill: "bg-rose-500/15 text-rose-400" },
-          ].map((m, i) => {
-            const Icon = m.icon;
-            return (
-              <div key={i} className={`${surface} border ${border} rounded-2xl p-5 flex flex-col gap-3`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-[9px] font-black uppercase tracking-[0.15em] ${ts}`}>{m.label}</span>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: m.color + "20" }}>
-                    <Icon className="w-3.5 h-3.5" style={{ color: m.color }} />
-                  </div>
-                </div>
-                <div>
-                  <div className={`text-3xl font-black tracking-tight ${tp}`}>{m.value}</div>
-                  <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${m.pill}`}>{m.sub}</span>
-                </div>
-                <div className={`h-1 rounded-full ${dk ? "bg-slate-800" : "bg-slate-100"}`}>
-                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: i === 0 ? `${healthScore}%` : `${Math.min(100, (Number(m.value) / Math.max(params.length, 1)) * 100)}%`, background: m.color }} />
-                </div>
-              </div>
-            );
-          })}
-        </section>
+        {/* ══════════ ERROR ALERT (No Parameters) ══════════ */}
+        {hasNoParameters && (
+          <div className={`rounded-2xl p-6 border-2 ${dk ? "bg-rose-500/5 border-rose-500/25" : "bg-rose-50/60 border-rose-200"} flex items-start gap-4`}>
+            <div className="w-10 h-10 rounded-xl bg-rose-500 flex items-center justify-center shrink-0 shadow-md shadow-rose-900/30">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className={`text-sm font-black uppercase tracking-wider ${dk ? "text-rose-400" : "text-rose-600"} mb-1`}>⚠️ No Lab Data Available</p>
+              <p className={`text-sm leading-relaxed ${dk ? "text-slate-300" : "text-slate-700"}`}>
+                {analysisStatus === "parse-error"
+                  ? "The document could not be parsed properly. Please ensure you're uploading a valid medical report with readable lab values."
+                  : "No biomarker values were found in the uploaded document. Please upload a medical report containing laboratory test results."}
+              </p>
+              <p className={`text-xs mt-2 opacity-60 ${ts}`}>💡 Tip: Blood test reports, pathology reports, and lab panels work best.</p>
+            </div>
+          </div>
+        )}
 
         {/* ══════════ INFRA TELEMETRY ══════════ */}
         <section className={`no-print ${surface} border ${border} rounded-2xl overflow-hidden`}>
           <div className={`grid grid-cols-3 md:grid-cols-6 divide-x ${dk ? "divide-slate-800" : "divide-slate-100"}`}>
             {[
-              ["ANALYSIS ID",  audit.analysis_id    || "—"],
-              ["ENGINE",       audit.engine          || "gemini"],
-              ["VERSION",      audit.engine_version  || "v6.0"],
-              ["LATENCY",      `${audit.processing_time_ms ?? "—"}ms`],
-              ["CACHE",        audit.cache_hit ? "HIT ✓" : "MISS"],
-              ["STATUS",       "✓ Verified"],
+              ["ANALYSIS ID", audit.analysis_id || "—"],
+              ["ENGINE", audit.engine || "gemini"],
+              ["VERSION", audit.engine_version || "v6.0"],
+              ["LATENCY", `${audit.processing_time_ms ?? "—"}ms`],
+              ["CACHE", audit.cache_hit ? "HIT ✓" : "MISS"],
+              ["STATUS", "✓ Verified"],
             ].map(([l, v], i) => (
               <div key={i} className={`px-4 py-3 ${dk ? "hover:bg-white/[0.02]" : "hover:bg-slate-50"} transition`}>
                 <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400/70">{l}</p>
@@ -373,12 +365,12 @@ export default function ResultsDashboard({
               <p className={`text-[10px] mt-0.5 ${ts}`}>{params.length} parameters · click any row to see clinical interpretation</p>
             </div>
             <div className={`flex p-1 rounded-xl no-print self-start ${dk ? "bg-slate-800" : "bg-slate-100"} text-[9px] font-black uppercase`}>
-              {(["all","critical","abnormal","normal"] as const).map(f => (
+              {(["all", "critical", "abnormal", "normal"] as const).map(f => (
                 <button key={f} onClick={() => { setFilter(f); setOpenRow(null); }}
                   className={`px-3 py-1.5 rounded-lg transition-all ${filter === f ? (dk ? "bg-slate-600 text-white shadow" : "bg-white text-indigo-600 shadow") : "opacity-40"}`}>
                   {f}{" "}
                   <span className="opacity-60">
-                    ({f==="all"?params.length:f==="critical"?critList.length:f==="abnormal"?abnormalList.length:normalList.length})
+                    ({f === "all" ? params.length : f === "critical" ? critList.length : f === "abnormal" ? abnormalList.length : normalList.length})
                   </span>
                 </button>
               ))}
@@ -508,10 +500,10 @@ export default function ResultsDashboard({
                               {p.status === "normal"
                                 ? "✓ Value is within healthy range. Maintain current lifestyle habits."
                                 : p.status === "critical"
-                                ? "🚨 Urgent: Consult your doctor immediately. This value is significantly abnormal."
-                                : p.status === "high"
-                                ? "⬆ Value is elevated. Discuss with your doctor for management strategies."
-                                : "⬇ Value is below normal. Dietary or supplement adjustments may help — consult a doctor."}
+                                  ? "🚨 Urgent: Consult your doctor immediately. This value is significantly abnormal."
+                                  : p.status === "high"
+                                    ? "⬆ Value is elevated. Discuss with your doctor for management strategies."
+                                    : "⬇ Value is below normal. Dietary or supplement adjustments may help — consult a doctor."}
                             </div>
                           </div>
 
@@ -655,7 +647,6 @@ export default function ResultsDashboard({
             </div>
           </div>
         </section>
-
       </main>
     </div>
   );

@@ -3,6 +3,7 @@ MediQ AI Analysis Engine (v6.0)
 Enhanced with: organ scores, doctor's perspective, 10-day health plan,
 disease risk predictions, and prevention tips.
 Dual AI support: Gemini (primary) → Groq (fallback) → Error fallback.
+Direct biomarker parsing: Extracts lab values from PDF text before AI.
 """
 
 import os
@@ -16,6 +17,13 @@ from pathlib import Path as _Path
 from dotenv import load_dotenv
 from google import genai
 from groq import Groq
+from organ_scoring import (
+    calculate_organ_scores,
+    calculate_health_score,
+    enrich_parameters,
+    validate_parameter_value
+)
+from biomarker_parser import parse_biomarkers_from_text, validate_and_merge_parameters
 
 # ======================================================
 # ENV LOAD
@@ -26,18 +34,47 @@ load_dotenv(dotenv_path=_ENV_PATH, override=True)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not GEMINI_API_KEY:
-    print("⚠️ GEMINI_API_KEY missing — Gemini will be skipped, using Groq fallback.")
-
 # ======================================================
 # CLIENTS & CONFIG
 # ======================================================
-gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+gemini_client = None
+groq_client = None
+gemini_initialized = False
+groq_initialized = False
 
-GEMINI_MODEL = "gemini-2.0-flash"   # ✅ stable model (replaces deprecated gemini-2.0-flash-exp)
-GROQ_MODEL = "llama-3.1-8b-instant"
+# Initialize Gemini (disabled - using Groq only)
+try:
+    if False:  # Gemini disabled, using Groq only
+        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        gemini_initialized = True
+        print("✅ Gemini API: Initialized")
+    else:
+        print("⚠️ Gemini API: Disabled (using Groq only)")
+except Exception as e:
+    print(f"❌ Gemini API: Failed to initialize - {e}")
+
+# Initialize Groq
+try:
+    if GROQ_API_KEY and GROQ_API_KEY.strip() and not GROQ_API_KEY.startswith("your_"):
+        groq_client = Groq(api_key=GROQ_API_KEY)
+        groq_initialized = True
+        print("✅ Groq API: Initialized (llama-3.3-70b-versatile)")
+    else:
+        print("⚠️ Groq API: No API key provided (will not be available as fallback)")
+except Exception as e:
+    print(f"❌ Groq API: Failed to initialize - {e}")
+
+# Verify at least one engine is available
+if not gemini_initialized and not groq_initialized:
+    print("🚨 WARNING: Neither Gemini nor Groq initialized! Add API keys to .env file.")
+
+GEMINI_MODEL = "gemini-2.0-flash"   # ✅ stable model
+GROQ_MODEL = "llama-3.3-70b-versatile"  # ✅ upgraded: better reasoning for complex medical reports
 ENGINE_VERSION = "v6.0-enhanced-prod"
+
+# Groq rate limit handling
+GROQ_RETRY_ATTEMPTS = 3
+GROQ_RETRY_DELAY = 1  # seconds, increases exponentially
 
 # Simple in-memory cache
 CACHE = {}
@@ -75,45 +112,15 @@ def generate_confidence(status: str) -> float:
 
 
 # ======================================================
-# SMART RISK SCORING
+# SMART RISK SCORING (USING ORGAN_SCORING MODULE)
 # ======================================================
 
 def calculate_risk_score(parameters: list) -> dict:
-    score = 100
-    critical = 0
-    abnormal = 0
-    confidence_sum = 0
-
-    for p in parameters:
-        status = p.get("status", "normal").lower()
-        confidence_sum += p.get("confidence", 0.8)
-
-        if status == "critical":
-            score -= 25
-            critical += 1
-        elif status in ["high", "low"]:
-            score -= 12
-            abnormal += 1
-        elif status == "normal":
-            score -= 2
-
-    score = max(5, min(100, score))
-    avg_conf = round(confidence_sum / max(len(parameters), 1), 2)
-
-    if score >= 75:
-        risk = "low-risk"
-    elif score >= 45:
-        risk = "moderate-risk"
-    else:
-        risk = "high-risk"
-
-    return {
-        "health_score": score,
-        "overall_risk": risk,
-        "critical_count": critical,
-        "abnormal_count": abnormal,
-        "average_confidence": avg_conf
-    }
+    """
+    Calculate health score using the organ_scoring module.
+    This provides accurate scoring based on reference ranges.
+    """
+    return calculate_health_score(parameters)
 
 
 # ======================================================
@@ -124,31 +131,124 @@ def normalize_result(data: dict, engine: str, proc_time: float, cache_hit: bool)
     def safe(v, default=""):
         return v if v is not None else default
 
+    # Extract raw parameters from AI
+    raw_params = data.get("parameters", [])
+    
+    # ✅ VALIDATION: Check if we have actual parameters
+    if not raw_params or len(raw_params) == 0:
+        print("⚠️ WARNING: No parameters extracted from document. Returning minimal analysis.")
+        return {
+            "user_profile": {
+                "name": safe(data.get("user_profile", {}).get("name"), "Patient"),
+                "age": safe(data.get("user_profile", {}).get("age"), "N/A"),
+                "gender": safe(data.get("user_profile", {}).get("gender"), "N/A"),
+            },
+            "parameters": [],
+            "summary": "❌ No valid lab data available. Please upload a medical report with lab values.",
+            "recommendations": ["Upload a valid medical report with biomarker values"],
+            "doctor_perspective": "Unable to provide clinical assessment without lab data. Please provide a medical report containing laboratory test results.",
+            "organ_scores": {"metabolic": 0, "cardiac": 0, "renal": 0, "hepatic": 0, "hematologic": 0},
+            "health_plan": [],
+            "disease_risks": [],
+            "prevention_tips": [],
+            "risk_metrics": {
+                "health_score": 0,
+                "overall_risk": "unknown",
+                "critical_count": 0,
+                "abnormal_count": 0,
+                "normal_count": 0,
+                "average_confidence": 0
+            },
+            "medical_disclaimer": (
+                "⚕️ IMPORTANT: This analysis is generated by an AI system and is intended for "
+                "informational and educational purposes only. It does NOT constitute medical advice, "
+                "diagnosis, or treatment. AI systems can and do make errors. Always consult a qualified "
+                "healthcare professional for medical decisions."
+            ),
+            "audit": {
+                "analysis_id": hashlib.md5(str(time.time()).encode()).hexdigest()[:12],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "engine": engine,
+                "engine_version": ENGINE_VERSION,
+                "processing_time_ms": int(proc_time * 1000),
+                "cache_hit": cache_hit,
+                "status": "no-parameters"
+            }
+        }
+    
+    # ✅ ENRICHMENT: Re-evaluate parameters using reference ranges
+    enriched_params = enrich_parameters(raw_params)
+    
+    # Build parameter list with proper validation
     params = []
-    for p in data.get("parameters", []):
-        status = str(p.get("status", "normal")).lower()
+    for p in enriched_params:
+        if not isinstance(p, dict):
+            continue
+        
+        param_name = safe(p.get("name"), "Unknown Parameter")
+        param_value = p.get("value")
+        
+        # Validate numeric value
+        is_valid, numeric_val = validate_parameter_value(param_value)
+        
+        status = str(p.get("status", "normal")).lower().strip()
+        
         params.append({
-            "name": safe(p.get("name"), "Unknown Parameter"),
-            "value": safe(p.get("value"), "N/A"),
+            "name": param_name,
+            "value": f"{numeric_val}" if is_valid else safe(param_value, "N/A"),
             "unit": safe(p.get("unit")),
             "normalRange": safe(p.get("normalRange")),
             "status": status,
-            "confidence": float(p.get("confidence") or generate_confidence(status)),
+            "confidence": float(p.get("confidence", 0.92)),
             "explanation": safe(p.get("explanation"), f"Biomarker level is {status}."),
             "red_flag": status == "critical"
         })
-
+    
+    # ✅ VALIDATION: Only calculate scores if we have valid parameters
+    if not params:
+        print("⚠️ WARNING: Parameters could not be parsed into valid numeric values.")
+        return {
+            "user_profile": {
+                "name": safe(data.get("user_profile", {}).get("name"), "Patient"),
+                "age": safe(data.get("user_profile", {}).get("age"), "N/A"),
+                "gender": safe(data.get("user_profile", {}).get("gender"), "N/A"),
+            },
+            "parameters": [],
+            "summary": "❌ Could not parse lab values. Please ensure the document contains readable lab data.",
+            "recommendations": ["Verify document quality and try again"],
+            "doctor_perspective": "Unable to provide clinical assessment due to data parsing issues.",
+            "organ_scores": {"metabolic": 0, "cardiac": 0, "renal": 0, "hepatic": 0, "hematologic": 0},
+            "health_plan": [],
+            "disease_risks": [],
+            "prevention_tips": [],
+            "risk_metrics": {
+                "health_score": 0,
+                "overall_risk": "unknown",
+                "critical_count": 0,
+                "abnormal_count": 0,
+                "normal_count": 0,
+                "average_confidence": 0
+            },
+            "medical_disclaimer": (
+                "⚕️ IMPORTANT: This analysis is generated by an AI system and is intended for "
+                "informational and educational purposes only."
+            ),
+            "audit": {
+                "analysis_id": hashlib.md5(str(time.time()).encode()).hexdigest()[:12],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "engine": engine,
+                "engine_version": ENGINE_VERSION,
+                "processing_time_ms": int(proc_time * 1000),
+                "cache_hit": cache_hit,
+                "status": "parse-error"
+            }
+        }
+    
+    # ✅ Calculate health score and risk metrics using enriched parameters
     risk_metrics = calculate_risk_score(params)
 
-    # Normalize organ scores (use AI-provided or generate defaults)
-    raw_organ = data.get("organ_scores", {})
-    organ_scores = {
-        "metabolic": max(0, min(100, int(raw_organ.get("metabolic", random.randint(60, 95))))),
-        "cardiac": max(0, min(100, int(raw_organ.get("cardiac", random.randint(65, 95))))),
-        "renal": max(0, min(100, int(raw_organ.get("renal", random.randint(50, 90))))),
-        "hepatic": max(0, min(100, int(raw_organ.get("hepatic", random.randint(55, 92))))),
-        "hematologic": max(0, min(100, int(raw_organ.get("hematologic", random.randint(60, 95)))))
-    }
+    # ✅ Calculate organ scores based on actual parameter data
+    organ_scores = calculate_organ_scores(params)
 
     # Normalize health plan
     health_plan = []
@@ -219,116 +319,60 @@ def normalize_result(data: dict, engine: str, proc_time: float, cache_hit: bool)
 # ======================================================
 
 def build_prompt(text: str) -> str:
-    return f"""You are MediQ, a medical report analysis AI. Analyze this medical document text and return ONLY valid JSON.
+    return f"""You are MediQ, an expert medical AI. Analyze the medical report below and return ONLY a single valid JSON object — no markdown, no explanation, no text outside the JSON.
 
-IMPORTANT RULES:
-- Extract ALL biomarker values found in the document
-- Use medical knowledge to assess each value against standard reference ranges
-- Be accurate — do not hallucinate values that aren't in the document
-- For the health plan, create practical, actionable day-by-day plans
-- For disease risks, only flag conditions supported by the actual data
-- The doctor_perspective should sound like an experienced physician's assessment
+EXTRACTION RULES:
+1. Extract EVERY lab test value from the document. Do not skip any parameter.
+2. Look for values in ALL formats: tables, rows, "Parameter: Value Unit (Range)", "Test | Result | Unit | Reference".
+3. For each parameter, extract: name, numeric value (as a string), unit, normal reference range, and status.
+4. STATUS must be exactly one of: "normal", "low", "high", "critical".
+   - "normal" = value is within the reference range
+   - "low" = value is below the reference range (slightly below)
+   - "high" = value is above the reference range (slightly above)
+   - "critical" = value is severely outside range (more than 30 percent deviation) or explicitly flagged critical
+5. Do NOT mark normal values as critical. Be very careful with status classification.
+6. Handle Indian lab formats: platelets may be in lakhs, WBC in thousands.
+7. If patient name/age/gender is not visible, use "Patient", "N/A", "N/A".
+8. The health_plan must have EXACTLY 10 entries (day 1 through day 10).
+9. The disease_risks array should list 3-5 likely risks based on the biomarker pattern.
+10. Return ONLY valid JSON — the output will be parsed with json.loads() directly.
 
-Return this exact JSON structure:
+REQUIRED JSON FORMAT:
 {{
-  "user_profile": {{
-    "name": "patient name if found, else 'Patient'",
-    "age": "age if found, else 'N/A'",
-    "gender": "gender if found, else 'N/A'"
-  }},
+  "user_profile": {{"name": "string", "age": "string", "gender": "string"}},
   "parameters": [
     {{
-      "name": "biomarker name",
-      "value": "measured value",
-      "unit": "unit of measurement",
-      "normalRange": "standard reference range",
-      "status": "normal | low | high | critical",
-      "confidence": 0.85,
-      "explanation": "brief clinical explanation of what this value means"
+      "name": "Hemoglobin",
+      "value": "13.5",
+      "unit": "g/dL",
+      "normalRange": "13.0 - 17.0",
+      "status": "normal",
+      "explanation": "Hemoglobin is within normal range, indicating good oxygen-carrying capacity."
     }}
   ],
-  "summary": "2-3 sentence overall clinical summary of the report findings",
-  "recommendations": ["actionable recommendation 1", "recommendation 2", "..."],
-  "doctor_perspective": "A 3-4 sentence paragraph written as if an experienced physician is speaking to the patient. Use professional but understandable language. Mention key findings and what the patient should focus on. Use phrases like 'Based on these results...' and 'I would recommend...'",
-  "organ_scores": {{
-    "metabolic": 0-100,
-    "cardiac": 0-100,
-    "renal": 0-100,
-    "hepatic": 0-100,
-    "hematologic": 0-100
-  }},
+  "summary": "Clear 2-3 sentence clinical summary of key findings.",
+  "recommendations": ["Specific recommendation 1", "Specific recommendation 2", "Specific recommendation 3"],
+  "doctor_perspective": "Write as a real, empathetic doctor speaking directly to the patient. Clearly mention any abnormal values by name, what they mean in simple terms, and specific actionable steps. If all values are normal, reassure and give preventive advice.",
+  "organ_scores": {{"metabolic": 80, "cardiac": 75, "renal": 85, "hepatic": 90, "hematologic": 80}},
   "health_plan": [
-    {{
-      "day": 1,
-      "focus": "main focus for this day",
-      "diet": "specific dietary advice",
-      "exercise": "exercise recommendation",
-      "precautions": "things to watch out for",
-      "sleep": "sleep recommendation",
-      "supplements": "supplement advice if any"
-    }},
-    {{
-      "day": 2,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 3,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 4,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 5,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 6,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 7,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 8,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 9,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }},
-    {{
-      "day": 10,
-      "focus": "...", "diet": "...", "exercise": "...", "precautions": "...", "sleep": "...", "supplements": "..."
-    }}
+    {{"day": 1, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 2, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 3, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 4, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 5, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 6, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 7, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 8, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 9, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}},
+    {{"day": 10, "focus": "Focus area", "diet": "Specific meals", "exercise": "Exercise type", "precautions": "Key precautions", "sleep": "8 hours", "supplements": "Specific supplements or None"}}
   ],
   "disease_risks": [
-    {{
-      "disease": "condition name",
-      "risk_level": "low | moderate | high",
-      "probability": 0-100,
-      "explanation": "why this risk exists based on the data"
-    }}
+    {{"disease": "Condition name", "risk_level": "low", "probability": 15, "explanation": "Why this risk exists based on the biomarker pattern."}}
   ],
-  "prevention_tips": [
-    "practical prevention tip 1",
-    "prevention tip 2",
-    "prevention tip 3",
-    "prevention tip 4",
-    "prevention tip 5"
-  ]
+  "prevention_tips": ["Tip 1 with specific actionable advice", "Tip 2 with specific actionable advice", "Tip 3 with specific actionable advice"]
 }}
 
-RULES:
-- Return ONLY valid JSON, no markdown, no explanation
-- No hallucinations — only analyze what's in the document
-- Organ scores should reflect the actual lab values found
-- The health plan should be personalized to the findings
-- Be conservative with disease risk predictions
-
-MEDICAL DOCUMENT TEXT:
+MEDICAL REPORT TEXT:
 {text[:12000]}
 """
 
@@ -349,16 +393,52 @@ def analyze_with_gemini(text: str) -> dict:
 
 
 def analyze_with_groq(text: str) -> dict:
+    """
+    Analyze medical text using Groq (LLaMA 3.1) with retry logic for rate limiting.
+    Implements exponential backoff for transient failures.
+    """
     if not groq_client:
-        raise RuntimeError("Groq client not initialized")
+        raise RuntimeError("Groq client not initialized (no API key provided in .env)")
+    
     prompt = build_prompt(text)
-    chat = groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.1,
-        max_tokens=4096,
-    )
-    return extract_json(chat.choices[0].message.content)
+    
+    # Retry logic with exponential backoff
+    for attempt in range(GROQ_RETRY_ATTEMPTS):
+        try:
+            chat = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,  # Low temp for deterministic medical analysis
+                max_tokens=8192,
+            )
+            return extract_json(chat.choices[0].message.content)
+        
+        except Exception as e:
+            error_str = str(e).lower()
+            
+            # Check for rate limit errors
+            if "rate_limit" in error_str or "429" in error_str:
+                if attempt < GROQ_RETRY_ATTEMPTS - 1:
+                    wait_time = GROQ_RETRY_DELAY * (2 ** attempt)  # Exponential backoff
+                    print(f"⏱️ Groq rate limited. Retrying in {wait_time}s (attempt {attempt + 1}/{GROQ_RETRY_ATTEMPTS})...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    raise RuntimeError(f"Groq rate limited after {GROQ_RETRY_ATTEMPTS} attempts: {e}")
+            
+            # Check for authentication errors
+            elif "authentication" in error_str or "401" in error_str or "unauthorized" in error_str:
+                raise RuntimeError(f"Groq authentication failed - invalid API key: {e}")
+            
+            # Check for model not found
+            elif "model" in error_str or "not found" in error_str:
+                raise RuntimeError(f"Groq model '{GROQ_MODEL}' not found or not available: {e}")
+            
+            # Other errors - no retry
+            else:
+                raise RuntimeError(f"Groq API error: {e}")
+    
+    raise RuntimeError("Groq analysis failed after all retry attempts")
 
 
 # ======================================================
@@ -377,28 +457,76 @@ def analyze_medical_text(text: str) -> dict:
         cached["audit"]["engine"] = "cache"
         return cached
 
-    engine_used = "gemini"
-    try:
-        raw = analyze_with_gemini(text)
-    except Exception as e:
-        print(f"⚠️ Gemini failed: {e}. Trying Groq...")
+    print("\n" + "="*60)
+    print("🚀 ANALYSIS PIPELINE STARTED")
+    print("="*60)
+    
+    # STEP 1: Direct biomarker parsing (before AI)
+    print("\n[STEP 1/3] Direct biomarker extraction from PDF text...")
+    direct_params = parse_biomarkers_from_text(text)
+    
+    # STEP 2: AI analysis
+    print("\n[STEP 2/3] AI-based medical analysis...")
+    engine_used = None
+    raw = None
+    
+    # Try Gemini first
+    if gemini_initialized:
+        try:
+            print(f"   Attempting Gemini ({GEMINI_MODEL})...")
+            raw = analyze_with_gemini(text)
+            engine_used = "gemini"
+            print(f"   ✅ Gemini analysis successful")
+        except Exception as e:
+            print(f"   ❌ Gemini failed: {str(e)[:100]}")
+            if groq_initialized:
+                print(f"   Attempting fallback to Groq ({GROQ_MODEL})...")
+    
+    # Try Groq if Gemini didn't work
+    if raw is None and groq_initialized:
         try:
             raw = analyze_with_groq(text)
             engine_used = "groq"
-        except Exception as e2:
-            print(f"❌ All AI engines failed: {e2}")
-            raw = {
-                "user_profile": {},
-                "parameters": [],
-                "summary": "AI processing encountered an error. Please try again.",
-                "doctor_perspective": "Unable to generate analysis at this time. Please retry or consult a healthcare professional.",
-                "organ_scores": {},
-                "health_plan": [],
-                "disease_risks": [],
-                "prevention_tips": [],
-                "recommendations": []
-            }
-            engine_used = "error-fallback"
+            print(f"   ✅ Groq analysis successful")
+        except Exception as e:
+            print(f"   ❌ Groq failed: {str(e)[:100]}")
+    
+    # Use error fallback if both failed
+    if raw is None:
+        print(f"   ⚠️ Both AI engines unavailable. Using error fallback.")
+        if not gemini_initialized and not groq_initialized:
+            print(f"      (Reason: No API keys configured. Add GEMINI_API_KEY or GROQ_API_KEY to .env)")
+        raw = {
+            "user_profile": {},
+            "parameters": [],
+            "summary": "AI processing unavailable. Using direct biomarker extraction only.",
+            "doctor_perspective": "Unable to generate AI analysis at this time. Review the extracted parameters below.",
+            "organ_scores": {},
+            "health_plan": [],
+            "disease_risks": [],
+            "prevention_tips": [],
+            "recommendations": []
+        }
+        engine_used = "error-fallback"
+
+    # STEP 3: Merge direct parser results with AI results
+    print("\n[STEP 3/3] Merging extraction results...")
+    ai_params = raw.get("parameters", [])
+    merged_params = validate_and_merge_parameters(ai_params, direct_params)
+    
+    # Update raw data with merged parameters
+    raw["parameters"] = merged_params
+    
+    # Log summary
+    print(f"\n📊 FINAL EXTRACTION SUMMARY:")
+    print(f"   AI Engine Used: {engine_used.upper()}")
+    print(f"   Direct parser found: {len(direct_params)} biomarkers")
+    print(f"   AI analysis found: {len(ai_params)} biomarkers")
+    print(f"   Merged result: {len(merged_params)} biomarkers")
+    if len(merged_params) > 0:
+        print(f"   Biomarkers: {', '.join([p.get('name', 'Unknown') for p in merged_params[:5]])}")
+        if len(merged_params) > 5:
+            print(f"   ... and {len(merged_params) - 5} more")
 
     normalized = normalize_result(
         raw,

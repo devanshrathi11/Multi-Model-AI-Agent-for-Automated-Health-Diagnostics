@@ -3,20 +3,36 @@
 backend/.env
 Frontend/.env
 
+# Python virtual environment
+.venv/
+venv/
+
 # Python local files
 __pycache__/
 *.pyc
+*.pyo
 backend/api/__pycache__/
 backend/api/uploads/
 backend/api/results/
 
 # Frontend local files
 Frontend/node_modules/
+Frontend/node_modules - Copy/
 Frontend/dist/
 
 node_modules
+node_modules - Copy/
 dist
 __pycache__
 .env
 uploads
 results
+
+# Test files and dev-only scripts
+test.png
+package-lock.json
+backend/api/test_*.py
+backend/api/cleanup_comments.py
+
+# Database (contains user data)
+backend/api/mediq.db

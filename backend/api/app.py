@@ -47,7 +47,14 @@ from utils import (
 # -----------------------------------
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {
+    "origins": "*",
+    "allow_headers": ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "expose_headers": ["Content-Type", "Authorization"],
+    "supports_credentials": False,
+    "max_age": 3600
+}})
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -98,6 +105,23 @@ def safe_delete(path: Path):
             path.unlink()
     except Exception:
         pass
+
+
+
+# ===================================================
+# PREFLIGHT (OPTIONS) — Handle CORS preflight globally
+# ===================================================
+
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        from flask import make_response
+        response = make_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, X-Requested-With"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Max-Age"] = "3600"
+        return response, 200
 
 
 # ===================================================
@@ -310,8 +334,11 @@ def upload():
         SYSTEM_METRICS["failed_scans"] += 1
         print(f"[ERROR] {str(e)}")
 
+        # Provide the actual exception message as the main error if it's our own RuntimeError/ValueError
+        error_msg = str(e) if isinstance(e, (RuntimeError, ValueError)) else "Internal processing failure"
+
         return jsonify({
-            "error": "Internal processing failure",
+            "error": error_msg,
             "detail": str(e),
             "session_id": session_id
         }), 500
